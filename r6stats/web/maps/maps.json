@@ -1,0 +1,12 @@
+{
+  "Bank":            {"slug": "bank",           "floors": [{"file": 3, "label": "Basement"}, {"file": 1, "label": "1st Floor"}, {"file": 2, "label": "2nd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Border":          {"slug": "border",         "floors": [{"file": 1, "label": "1st Floor"}, {"file": 2, "label": "2nd Floor"}, {"file": 3, "label": "Roof"}]},
+  "Chalet":          {"slug": "chalet",         "floors": [{"file": 1, "label": "Basement"}, {"file": 2, "label": "1st Floor"}, {"file": 3, "label": "2nd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Club House":      {"slug": "clubhouse",      "floors": [{"file": 1, "label": "Basement"}, {"file": 2, "label": "1st Floor"}, {"file": 3, "label": "2nd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Consulate":       {"slug": "consulate",      "floors": [{"file": 1, "label": "Basement"}, {"file": 2, "label": "1st Floor"}, {"file": 3, "label": "2nd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Fortress":        {"slug": "fortress",       "floors": [{"file": 1, "label": "1st Floor"}, {"file": 2, "label": "2nd Floor"}, {"file": 3, "label": "Roof"}]},
+  "Kafe":            {"slug": "kafe",           "floors": [{"file": 1, "label": "1st Floor"}, {"file": 2, "label": "2nd Floor"}, {"file": 3, "label": "3rd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Lair":            {"slug": "lair",           "floors": [{"file": 1, "label": "Basement"}, {"file": 2, "label": "1st Floor"}, {"file": 3, "label": "2nd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Nighthaven Labs": {"slug": "nighthavenlabs", "floors": [{"file": 1, "label": "Basement"}, {"file": 2, "label": "1st Floor"}, {"file": 3, "label": "2nd Floor"}, {"file": 4, "label": "Roof"}]},
+  "Skyscraper":      {"slug": "skyscraper",     "floors": [{"file": 1, "label": "1st Floor"}, {"file": 2, "label": "2nd Floor"}, {"file": 3, "label": "Roof"}]}
+}

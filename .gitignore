@@ -1,0 +1,7 @@
+data/
+__pycache__/
+.venv/
+
+# Official Ubisoft blueprints: fetched by `python3 -m r6stats assets`,
+# not redistributed with this project.
+r6stats/web/maps/*/

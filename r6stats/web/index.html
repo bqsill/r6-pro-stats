@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>R6 Pro Stats</title>
+<style>
+  :root {
+    --bg: #0a1020;
+    --panel: #0f1a33;
+    --panel2: #13224200;
+    --card: #122040;
+    --line: #1d2f55;
+    --accent: #2e548f;
+    --accent-hi: #4a7cc7;
+    --text: #f2f5fa;
+    --muted: #8fa1c2;
+    --atk: #d08a4a;
+    --def: #5d8fd6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 13px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 18px;
+    padding: 12px 18px; background: var(--panel);
+    border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  }
+  header h1 { font-size: 16px; letter-spacing: 2px; font-weight: 700; }
+  header h1 span { color: var(--accent-hi); }
+  nav { display: flex; gap: 6px; }
+  nav button {
+    background: transparent; color: var(--muted); border: 1px solid transparent;
+    padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
+  }
+  nav button:hover { color: var(--text); }
+  nav button.active { background: var(--accent); color: #fff; }
+  #meta { margin-left: auto; color: var(--muted); font-size: 11.5px; text-align: right; }
+
+  #filters {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+    padding: 10px 18px; background: var(--panel);
+    border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  select, input {
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px;
+    padding: 7px 10px; font-size: 12.5px; min-width: 110px; height: 32px;
+  }
+  input[type="number"] { min-width: 80px; width: 80px; }
+  input[type="date"] { min-width: 130px; }
+  select:focus, input:focus {
+    outline: none; border-color: var(--accent-hi);
+    box-shadow: 0 0 0 3px rgba(74, 124, 199, .18);
+  }
+  .hidden { display: none !important; }
+
+  /* custom dropdowns (native select stays hidden underneath as state) */
+  .dd { position: relative; }
+  .dd > select { display: none; }
+  .dd-btn {
+    display: flex; align-items: center; gap: 8px; height: 32px;
+    min-width: 130px; padding: 0 10px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); border-radius: 7px;
+    color: var(--text); font-size: 12.5px; white-space: nowrap;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .dd-btn:hover { border-color: var(--accent); }
+  .dd.open .dd-btn {
+    border-color: var(--accent-hi);
+    box-shadow: 0 0 0 3px rgba(74, 124, 199, .18);
+  }
+  .dd-btn .dd-chev {
+    margin-left: auto; width: 9px; height: 9px; flex: 0 0 auto;
+    border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
+    transform: rotate(45deg) translateY(-2px); transition: transform .15s;
+  }
+  .dd.open .dd-btn .dd-chev { transform: rotate(225deg) translateY(-1px); }
+  .dd-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+    min-width: 100%; max-height: 320px; overflow-y: auto;
+    background: #101d3a; border: 1px solid var(--accent);
+    border-radius: 9px; padding: 5px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .4);
+    opacity: 0; transform: translateY(-4px) scale(.99); pointer-events: none;
+    transition: opacity .12s ease, transform .12s ease;
+  }
+  .dd.open .dd-menu { opacity: 1; transform: none; pointer-events: auto; }
+  .dd-opt {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 9px; border-radius: 6px; cursor: pointer;
+    color: var(--text); font-size: 12.5px; white-space: nowrap;
+  }
+  .dd-opt:hover { background: var(--accent); }
+  .dd-opt.selected { color: var(--accent-hi); font-weight: 600; }
+  .dd-opt.selected:hover { color: #fff; }
+  .dd-opt .dd-check { margin-left: auto; padding-left: 14px; visibility: hidden; }
+  .dd-opt.selected .dd-check { visibility: visible; }
+
+  main { flex: 1 1 auto; overflow: auto; padding: 14px 18px; }
+  #status { color: var(--muted); padding: 30px; text-align: center; }
+
+  table { border-collapse: collapse; width: 100%; }
+  thead th {
+    position: sticky; top: -14px; z-index: 2;
+    background: var(--panel); color: var(--muted);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px;
+    padding: 8px 10px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid var(--line); cursor: pointer; user-select: none;
+  }
+  thead th.l { text-align: left; }
+  thead th:hover { color: var(--text); }
+  thead th.sorted { color: var(--accent-hi); }
+  tbody td {
+    padding: 6px 10px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid #16233f; font-variant-numeric: tabular-nums;
+  }
+  tbody td.l { text-align: left; }
+  tbody tr:hover { background: var(--card); }
+  tbody tr.click { cursor: pointer; }
+  .pos { color: #7fd6a2; } .neg { color: #e08a8a; }
+
+  .entity { display: flex; align-items: center; gap: 9px; }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--card); border: 1px solid var(--line);
+    object-fit: cover; object-position: top; flex: 0 0 auto;
+  }
+  .teamlogo { width: 18px; height: 18px; object-fit: contain; flex: 0 0 auto; }
+  .flag { width: 14px; height: 10px; border-radius: 2px; }
+  .opicon { width: 26px; height: 26px; flex: 0 0 auto; }
+  .opicon.chip { background: #dfe4ee; border-radius: 5px; padding: 2px; }
+  .mapthumb {
+    width: 52px; height: 30px; border-radius: 4px;
+    object-fit: cover; border: 1px solid var(--line); flex: 0 0 auto;
+  }
+  .side-badge {
+    font-size: 9.5px; letter-spacing: 1px; padding: 2px 7px; border-radius: 4px;
+    font-weight: 700;
+  }
+  .side-ATTACK { background: #3a2a18; color: var(--atk); }
+  .side-DEFEND { background: #182a44; color: var(--def); }
+
+  .bar { display: inline-block; height: 5px; border-radius: 3px; background: var(--accent-hi); vertical-align: middle; margin-right: 7px; }
+  .bar.ban { background: #b05252; }
+
+  /* player detail */
+  #detail-head {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+    background: var(--panel); padding: 14px 18px; border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  #detail-head .avatar { width: 64px; height: 64px; }
+  #detail-head h2 { font-size: 20px; display: flex; gap: 10px; align-items: center; }
+  #detail-head .sub { color: var(--muted); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+  #detail-head button {
+    margin-left: auto; background: var(--card); border: 1px solid var(--line);
+    color: var(--text); border-radius: 6px; padding: 7px 14px; cursor: pointer;
+  }
+  #detail-head button:hover { border-color: var(--accent-hi); }
+  h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin: 20px 0 8px; }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+
+  /* ---------- planning tab ---------- */
+  #planning { flex: 1 1 auto; display: flex; min-height: 0; }
+  #plan-side {
+    width: 232px; flex: 0 0 auto; overflow-y: auto;
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 12px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .ps-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 6px; }
+  #plan-floors { display: flex; flex-direction: column; gap: 5px; }
+  .floor-btn {
+    display: flex; align-items: center; padding: 0 12px;
+    height: 31px; border-radius: 7px; cursor: pointer; font-size: 12.5px; font-weight: 600;
+    background: var(--card); border: 1px solid var(--line); color: var(--muted);
+  }
+  .floor-btn:hover { border-color: var(--accent); color: var(--text); }
+  .floor-btn.active { background: var(--accent); color: #fff; border-color: var(--accent-hi); }
+
+  #room-readout {
+    margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line);
+    position: sticky; bottom: 0; background: var(--panel);
+  }
+  #room-name {
+    font-size: 14.5px; font-weight: 700; color: var(--accent-hi);
+    line-height: 1.25; min-height: 36px; padding-bottom: 2px;
+  }
+  #room-name.empty { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+  #plan-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tool-btn {
+    width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 7px;
+    cursor: pointer; font-size: 15px;
+  }
+  .tool-btn:hover { border-color: var(--accent); }
+  .tool-btn.active { background: var(--accent); border-color: var(--accent-hi); }
+  #plan-color { width: 34px; height: 34px; min-width: 34px; padding: 3px; cursor: pointer; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .swatch {
+    width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .swatch.active { border-color: #fff; }
+
+  .roster-head { display: flex; align-items: center; margin-bottom: 6px; }
+  .roster-head .ps-label { margin: 0; }
+  .roster-add {
+    margin-left: auto; width: 20px; height: 20px; border-radius: 5px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--card); border: 1px solid var(--line); color: var(--muted); font-size: 13px;
+  }
+  .roster-add:hover { border-color: var(--accent-hi); color: #fff; }
+  .roster { display: flex; flex-direction: column; gap: 4px; }
+  .chip {
+    display: flex; align-items: center; gap: 7px; padding: 4px 6px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 7px;
+    cursor: pointer; font-size: 12px;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.arming { border-color: var(--accent-hi); box-shadow: 0 0 0 3px rgba(74,124,199,.18); }
+  .chip.placed { opacity: .92; }
+  .chip .opicon { width: 20px; height: 20px; }
+  .chip .st { color: var(--muted); font-size: 10px; }
+  .chip .cbtn {
+    width: 18px; height: 18px; border-radius: 4px; display: flex; align-items: center;
+    justify-content: center; color: var(--muted); font-size: 11px; flex: 0 0 auto;
+  }
+  .chip .cbtn:hover { background: var(--accent); color: #fff; }
+  .chip .cbtn.gadget { margin-left: auto; }
+
+  #plan-stage {
+    flex: 1 1 auto; min-width: 0; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: #060b18; padding: 10px;
+  }
+  #plan-frame { position: relative; transform-origin: 0 0; --k: 1; }
+  #zoom-ctl {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  #zoom-ctl .tool-btn { font-size: 16px; background: rgba(18, 32, 64, .92); }
+  #zoom-ctl .zlevel {
+    text-align: center; color: var(--muted); font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  #plan-frame.placing { cursor: crosshair; }
+  #plan-frame.pencil { cursor: crosshair; }
+  #plan-frame.eraser { cursor: cell; }
+  #plan-bg {
+    display: block; max-width: 100%; max-height: calc(100vh - 78px);
+    user-select: none; -webkit-user-drag: none;
+  }
+  #plan-draw { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #plan-frame.toolmode #plan-draw { pointer-events: auto; }
+  #plan-tokens { position: absolute; inset: 0; }
+  #plan-frame.toolmode #plan-tokens { pointer-events: none; }
+  .token {
+    position: absolute; transform: translate(-50%, -50%) scale(calc(1 / var(--k, 1)));
+    width: 30px; height: 30px; border-radius: 50%; cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10, 16, 32, .88); border: 2px solid;
+    box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  }
+  .token:active { cursor: grabbing; }
+  .token img { width: 20px; height: 20px; pointer-events: none; }
+  .token.atk { border-color: var(--atk); }
+  .token.def { border-color: var(--def); }
+  .token.ability { width: 22px; height: 22px; border-radius: 5px; border-style: dashed; border-width: 1.5px; }
+  .token.ability img { width: 14px; height: 14px; }
+  img.chipbg { background: #dfe4ee; border-radius: 3px; padding: 1px; }
+  #plan-hint {
+    position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    background: rgba(15, 26, 51, .92); border: 1px solid var(--line);
+    color: var(--muted); border-radius: 7px; padding: 5px 12px; font-size: 11.5px;
+    pointer-events: none; white-space: nowrap;
+  }
+
+  #op-picker {
+    position: fixed; inset: 0; z-index: 100; display: flex;
+    align-items: center; justify-content: center; background: rgba(4, 8, 18, .7);
+  }
+  #op-picker .box {
+    background: var(--panel); border: 1px solid var(--accent); border-radius: 12px;
+    padding: 18px 20px; width: min(900px, 92vw); max-height: 80vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .6);
+  }
+  #op-picker .phead { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  #op-picker .phead h4 {
+    font-size: 12.5px; letter-spacing: 1.6px; text-transform: uppercase; font-weight: 700;
+  }
+  #op-picker .phead .count { color: var(--muted); font-size: 11.5px; }
+  #op-picker .phead .esc { margin-left: auto; color: var(--muted); font-size: 11px; }
+  #op-picker .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    gap: 7px; overflow-y: auto; padding-right: 4px;
+  }
+  #op-picker .cell {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 3px; border-radius: 9px; cursor: pointer; font-size: 10.5px;
+    color: var(--muted); border: 1px solid var(--line); background: var(--card);
+    text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #op-picker .cell:hover {
+    border-color: var(--accent-hi); color: var(--text);
+    box-shadow: 0 0 0 3px rgba(74, 124, 199, .16);
+  }
+  #op-picker .cell.used { opacity: .28; pointer-events: none; }
+  #op-picker .cell img { width: 34px; height: 34px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>R6 <span>PRO STATS</span></h1>
+  <nav>
+    <button data-view="players" class="active">Players</button>
+    <button data-view="operators">Operators</button>
+    <button data-view="maps">Maps</button>
+    <button data-view="planning">Planning</button>
+  </nav>
+  <div id="meta"></div>
+</header>
+
+<div id="filters">
+  <div class="field"><label>Tier</label>
+    <select id="f-tier">
+      <option value="">Tier 1 + 2</option><option value="1">Tier 1</option><option value="2">Tier 2</option>
+    </select></div>
+  <div class="field"><label>Region</label>
+    <select id="f-region">
+      <option value="">All regions</option>
+      <option value="eu">Europe / MENA</option><option value="na">North America</option>
+      <option value="sa">South America</option><option value="apac">Asia-Pacific</option>
+      <option value="intl">International</option>
+    </select></div>
+  <div class="field"><label>Period</label>
+    <select id="f-period"><option value="">Last 365 days</option></select></div>
+  <div class="field hidden" id="f-dates">
+    <label>From / To</label>
+    <div style="display:flex;gap:6px">
+      <input type="date" id="f-from"><input type="date" id="f-to">
+    </div></div>
+  <div class="field"><label>Map</label>
+    <select id="f-map"><option value="">All maps</option></select></div>
+  <div class="field only-operators hidden"><label>Side</label>
+    <select id="f-side">
+      <option value="">Both</option><option value="atk">Attack</option><option value="def">Defense</option>
+    </select></div>
+  <div class="field only-players"><label>Min rounds</label>
+    <input type="number" id="f-minrounds" value="75" min="0" step="25"></div>
+  <div class="field only-players"><label>Show top</label>
+    <select id="f-limit">
+      <option value="" selected>All players</option>
+      <option>25</option><option>50</option><option>100</option><option>300</option>
+    </select></div>
+  <div class="field only-players"><label>Search</label>
+    <input type="text" id="f-search" placeholder="player or team..."></div>
+</div>
+
+<main><div id="status">loading…</div><div id="content"></div></main>
+
+<div id="planning" class="hidden">
+  <div id="plan-side">
+    <div>
+      <div class="ps-label">Map</div>
+      <select id="plan-map"></select>
+    </div>
+    <div>
+      <div class="ps-label">Floor</div>
+      <div id="plan-floors"></div>
+    </div>
+    <div>
+      <div class="ps-label">Tools</div>
+      <div id="plan-tools">
+        <div class="tool-btn" id="tool-pencil" title="Pencil">✏️</div>
+        <div class="tool-btn" id="tool-eraser" title="Eraser">◻️</div>
+        <input type="color" id="plan-color" value="#ffd84d" title="Color wheel">
+        <div class="tool-btn" id="tool-clear" title="Clear drawing on this floor">🗑</div>
+      </div>
+      <div class="swatches" id="plan-swatches"></div>
+    </div>
+    <div>
+      <div class="roster-head"><div class="ps-label">Attackers</div>
+        <div class="roster-add" id="add-atk">+</div></div>
+      <div class="roster" id="roster-atk"></div>
+    </div>
+    <div>
+      <div class="roster-head"><div class="ps-label">Defenders</div>
+        <div class="roster-add" id="add-def">+</div></div>
+      <div class="roster" id="roster-def"></div>
+    </div>
+    <div id="room-readout">
+      <div class="ps-label">Room</div>
+      <div id="room-name" class="empty">hover the map</div>
+    </div>
+  </div>
+  <div id="plan-stage">
+    <div id="plan-frame">
+      <img id="plan-bg">
+      <canvas id="plan-draw"></canvas>
+      <div id="plan-tokens"></div>
+    </div>
+    <div id="zoom-ctl">
+      <div class="tool-btn" id="zoom-in" title="Zoom in">+</div>
+      <div class="tool-btn" id="zoom-out" title="Zoom out">−</div>
+      <div class="tool-btn" id="zoom-reset" title="Reset view">⤢</div>
+      <div class="zlevel" id="zoom-level">1.0×</div>
+    </div>
+    <div id="plan-hint" class="hidden"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const state = { view: "players", sort: null, dir: -1, detail: null, rows: [], extra: null };
+
+const FMT = {
+  int: v => v == null ? "-" : Math.round(v).toLocaleString(),
+  f2:  v => v == null ? "-" : (+v).toFixed(2),
+  f1:  v => v == null ? "-" : (+v).toFixed(1),
+  pct: v => v == null ? "-" : Math.round(v) + "%",
+  pct1:v => v == null ? "-" : (+v).toFixed(1) + "%",
+  plus:v => v == null ? "-" : `<span class="${v >= 0 ? "pos" : "neg"}">${v >= 0 ? "+" : ""}${v}</span>`,
+};
+
+const STAT_COLS = [
+  ["maps","Maps","int"], ["rounds","Rnds","int"], ["rating","Rating","f2"],
+  ["kills","K","int"], ["deaths","D","int"], ["plus_minus","+/-","plus"],
+  ["kd","K/D","f2"],
+  ["kpr","KPR","f2"], ["kost","KOST","pct"], ["srv","SRV","pct"], ["hs","HS","pct"],
+  ["ok_kills","OK","int"], ["ok_deaths","OD","int"], ["clutches","1vX","int"],
+  ["map_win_pct","Win","pct"],
+];
+
+function filters() {
+  const period = $("#f-period").value;
+  const f = {
+    tier: $("#f-tier").value ? +$("#f-tier").value : null,
+    region: $("#f-region").value || null,
+    map: $("#f-map").value || null,
+  };
+  if (period === "custom") { f.from = $("#f-from").value || null; f.to = $("#f-to").value || null; }
+  else if (period) f.patch = period;
+  return f;
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function playerCell(r) {
+  const img = r.image_url ? `<img class="avatar" src="${esc(r.image_url)}">` : `<span class="avatar"></span>`;
+  const flag = r.flag_url ? `<img class="flag" src="${esc(r.flag_url)}">` : "";
+  return `<div class="entity">${img}<div><div>${esc(r.ign)} ${flag}</div></div></div>`;
+}
+function teamCell(t) {
+  if (!t) return "-";
+  const logo = t.logo_url ? `<img class="teamlogo" src="${esc(t.logo_url)}">` : "";
+  return `<div class="entity">${logo}<span>${esc(t.tag || t.name || "")}</span></div>`;
+}
+
+function renderTable(rows, cols, opts = {}) {
+  const { sortKey, dir } = state;
+  if (sortKey) {
+    rows = [...rows].sort((a, b) => {
+      const x = a[sortKey], y = b[sortKey];
+      if (x == null) return 1; if (y == null) return -1;
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }
+  let h = "<table><thead><tr>";
+  for (const [key, label, , left] of cols)
+    h += `<th class="${left ? "l " : ""}${key === sortKey ? "sorted" : ""}" data-key="${key}">${label}</th>`;
+  h += "</tr></thead><tbody>";
+  for (const r of rows) {
+    h += `<tr class="${opts.rowClick ? "click" : ""}" data-id="${r[opts.idKey] ?? ""}">`;
+    for (const [key, , fmt, left] of cols) {
+      const raw = fmt === "custom" ? (opts.custom[key])(r) : (FMT[fmt] || esc)(r[key]);
+      h += `<td class="${left ? "l" : ""}">${raw}</td>`;
+    }
+    h += "</tr>";
+  }
+  h += "</tbody></table>";
+  return h;
+}
+
+function attachSort(container, rerender) {
+  container.querySelectorAll("th").forEach(th => th.onclick = () => {
+    const k = th.dataset.key;
+    if (state.sortKey === k) state.dir *= -1; else { state.sortKey = k; state.dir = -1; }
+    rerender();
+  });
+}
+
+async function call(method, ...args) {
+  const res = await window.pywebview.api[method](...args);
+  if (!res.ok) throw new Error(res.error);
+  return res.data;
+}
+
+/* ---------- views ---------- */
+
+async function loadPlayers() {
+  const rows = await call("players", filters(), "rating", +$("#f-minrounds").value,
+                          $("#f-limit").value ? +$("#f-limit").value : null);
+  state.rows = rows;
+  renderPlayers();
+}
+function renderPlayers() {
+  const q = $("#f-search").value.trim().toLowerCase();
+  const rows = state.rows.filter(r => !q ||
+    (r.ign || "").toLowerCase().includes(q) ||
+    ((r.team_info && (r.team_info.tag + " " + r.team_info.name)) || "").toLowerCase().includes(q));
+  const cols = [["ign","Player","custom",1], ["team","Team","custom",1], ...STAT_COLS];
+  $("#content").innerHTML = renderTable(rows, cols, {
+    rowClick: true, idKey: "player_id",
+    custom: { ign: playerCell, team: r => teamCell(r.team_info) },
+  });
+  attachSort($("#content"), renderPlayers);
+  $("#content").querySelectorAll("tr.click").forEach(tr =>
+    tr.onclick = () => showDetail(+tr.dataset.id));
+}
+
+async function showDetail(playerId) {
+  setStatus("loading…");
+  try {
+    const d = await call("player_detail", playerId, filters());
+    setStatus("");
+    const m = d.meta || {}, t = d.team;
+    const flag = m.flag_url ? `<img class="flag" src="${esc(m.flag_url)}">` : "";
+    const opCols = side => [
+      ["operator","Operator","custom",1], ["maps","Maps","int"],
+      ["kpr","KPR","f2"], ["kd","K/D","f2"], ["kost","KOST","pct"],
+      ["map_win_pct","Map win","pct"], ["rating","Rating","f2"]];
+    const opCell = r => `<div class="entity"><img class="opicon${r.icon_chip ? " chip" : ""}" src="${esc(r.icon_url || "")}"><span>${esc(r.operator)}</span></div>`;
+    const mapCell = r => `<div class="entity">${r.image_url ? `<img class="mapthumb" src="${esc(r.image_url)}">` : ""}<span>${esc(r.map)}</span></div>`;
+    let h = `
+      <div id="detail-head">
+        ${m.image_url ? `<img class="avatar" src="${esc(m.image_url)}">` : ""}
+        <div>
+          <h2>${esc(m.ign)} ${flag}</h2>
+          <div class="sub">${esc(m.real_name || "")} ${t ? "· " + teamCell(t) : ""}</div>
+        </div>
+        <button id="back">&larr; Back to players</button>
+      </div>`;
+    if (d.summary) {
+      h += `<h3>Summary (current filters)</h3>` +
+           renderTable([d.summary], STAT_COLS, {});
+      h += `<h3>By map</h3>` +
+           renderTable(d.by_map, [["map","Map","custom",1], ...STAT_COLS], { custom: { map: mapCell } });
+      h += `<div class="cols2">
+        <div><h3>Attack operators <small>(most-played per map)</small></h3>
+          ${renderTable(d.operators.atk, opCols(), { custom: { operator: opCell } })}</div>
+        <div><h3>Defense operators <small>(most-played per map)</small></h3>
+          ${renderTable(d.operators.def, opCols(), { custom: { operator: opCell } })}</div>
+      </div>`;
+    } else {
+      h += `<div id="status">no maps in the current filter scope</div>`;
+    }
+    $("#content").innerHTML = h;
+    $("#back").onclick = () => { state.sortKey = null; load(); };
+  } catch (e) { setStatus(e.message); }
+}
+
+async function loadOperators() {
+  const d = await call("operators", filters(), $("#f-side").value || null, "pick");
+  state.rows = d.rows; state.extra = d.games;
+  renderOperators();
+}
+function renderOperators() {
+  const maxPick = Math.max(1, ...state.rows.map(r => r.pick_pct || 0));
+  const cols = [
+    ["operator","Operator","custom",1], ["side","Side","custom",1],
+    ["pick_pct","Pick","custom"], ["ban_pct","Ban","custom"],
+    ["picks","Maps","int"], ["rounds","Rnds","int"],
+    ["kills","K","int"], ["deaths","D","int"],
+    ["kpr","KPR","f2"], ["kd","K/D","f2"], ["kost","KOST","pct"],
+    ["srv","SRV","pct"], ["hs","HS","pct"],
+    ["ok_kills","OK","int"], ["ok_deaths","OD","int"], ["clutches","1vX","int"],
+    ["map_win_pct","Win","pct"], ["rating","Rating","f2"],
+  ];
+  $("#content").innerHTML =
+    `<div style="color:var(--muted);margin-bottom:8px">` +
+    `${state.extra} maps in scope · pick% = share of team-maps where the operator was a player's most-played · ` +
+    `per-round stats are the full-map statlines of players who mained the operator that map · bans are exact</div>` +
+    renderTable(state.rows, cols, { custom: {
+      operator: r => `<div class="entity"><img class="opicon${r.icon_chip ? " chip" : ""}" src="${esc(r.icon_url || "")}"><span>${esc(r.operator)}</span></div>`,
+      side: r => `<span class="side-badge side-${r.side}">${r.side === "ATTACK" ? "ATK" : "DEF"}</span>`,
+      pick_pct: r => r.pick_pct == null ? "-" :
+        `<span class="bar" style="width:${44 * r.pick_pct / maxPick}px"></span>${r.pick_pct.toFixed(1)}%`,
+      ban_pct: r => r.ban_pct == null ? "-" :
+        `<span class="bar ban" style="width:${44 * Math.min(r.ban_pct, 100) / 100}px"></span>${r.ban_pct.toFixed(1)}%`,
+    }});
+  attachSort($("#content"), renderOperators);
+}
+
+async function loadMaps() {
+  state.rows = await call("maps", filters());
+  renderMaps();
+}
+function renderMaps() {
+  const cols = [
+    ["map","Map","custom",1], ["plays","Plays","int"], ["avg_rounds","Avg rounds","f1"],
+    ["atk_round_pct","Atk round win","pct1"], ["def_round_pct","Def round win","pct1"],
+    ["one_round_pct","Decided by 1","pct"],
+  ];
+  $("#content").innerHTML = renderTable(state.rows, cols, { custom: {
+    map: r => `<div class="entity">${r.image_url ? `<img class="mapthumb" src="${esc(r.image_url)}">` : ""}<span>${esc(r.map)}</span></div>`,
+  }});
+  attachSort($("#content"), renderMaps);
+}
+
+/* ---------- custom dropdowns ---------- */
+
+function enhanceSelect(sel) {
+  const wrap = document.createElement("div");
+  wrap.className = "dd";
+  sel.parentNode.insertBefore(wrap, sel);
+  wrap.appendChild(sel);
+
+  const btn = document.createElement("div");
+  btn.className = "dd-btn";
+  btn.innerHTML = `<span class="dd-label"></span><span class="dd-chev"></span>`;
+  const menu = document.createElement("div");
+  menu.className = "dd-menu";
+  wrap.append(btn, menu);
+
+  const rebuild = () => {
+    menu.innerHTML = "";
+    for (const o of sel.options) {
+      const d = document.createElement("div");
+      d.className = "dd-opt" + (o.value === sel.value ? " selected" : "");
+      d.innerHTML = `<span>${esc(o.textContent)}</span><span class="dd-check">✓</span>`;
+      d.onclick = e => {
+        e.stopPropagation();
+        closeAllDropdowns();
+        if (sel.value !== o.value) {
+          sel.value = o.value;
+          sync();
+          sel.dispatchEvent(new Event("change"));
+        }
+      };
+      menu.appendChild(d);
+    }
+  };
+  const sync = () => {
+    const cur = sel.options[sel.selectedIndex];
+    btn.querySelector(".dd-label").textContent = cur ? cur.textContent : "";
+    rebuild();
+  };
+  btn.onclick = e => {
+    e.stopPropagation();
+    const wasOpen = wrap.classList.contains("open");
+    closeAllDropdowns();
+    if (!wasOpen) { rebuild(); wrap.classList.add("open"); }
+  };
+  sel.addEventListener("options-changed", sync);
+  sync();
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll(".dd.open").forEach(d => d.classList.remove("open"));
+}
+document.addEventListener("click", closeAllDropdowns);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeAllDropdowns(); });
+
+/* ---------- planning tab ---------- */
+
+const plan = {
+  meta: null,          // {maps: {name: {slug, floors}}, operators: [...]}
+  slug: null, mapName: null, floors: 1, floor: 1,
+  state: null,         // {roster: {atk:[], def:[]}, tokens: [], drawings: {floor: dataURL}}
+  tool: null,          // 'pencil' | 'eraser' | null
+  arming: null,        // {kind:'op'|'ability', op, side}
+  color: "#ffd84d",
+  hist: {},            // floor -> {undo: [dataURL], redo: [dataURL]}
+  dirty: false, saveTimer: null, inited: false,
+};
+const SWATCHES = ["#ffd84d", "#ff5d5d", "#59d98c", "#4a7cc7", "#c883f2", "#ff9d45", "#ffffff", "#0aeaea"];
+
+function planOps(side) { return plan.meta.operators.filter(o => o.side === side); }
+function opMeta(name) { return plan.meta.operators.find(o => o.name === name); }
+
+async function initPlanning() {
+  if (plan.inited) return;
+  plan.inited = true;
+  plan.meta = await call("plan_meta");
+
+  const names = Object.keys(plan.meta.maps);
+  if (!names.length) {
+    $("#plan-stage").innerHTML =
+      `<div style="color:var(--muted);text-align:center;max-width:420px;line-height:1.7">
+         <strong style="color:var(--text)">No map blueprints yet.</strong><br>
+         Run <code style="color:var(--accent-hi)">python3 -m r6stats assets</code> to
+         download them from Ubisoft, then reopen this tab.</div>`;
+    $("#plan-side").style.display = "none";
+    return;
+  }
+  const sel = $("#plan-map");
+  for (const name of names)
+    sel.insertAdjacentHTML("beforeend", `<option>${esc(name)}</option>`);
+  enhanceSelect(sel);
+  sel.onchange = () => selectMap(sel.value);
+
+  const cw = $("#plan-color");
+  cw.oninput = () => { plan.color = cw.value; setTool("pencil"); renderSwatches(); };
+  for (const c of SWATCHES) {
+    const s = document.createElement("div");
+    s.className = "swatch"; s.style.background = c; s.dataset.c = c;
+    s.onclick = () => { plan.color = c; cw.value = c; setTool("pencil"); renderSwatches(); };
+    $("#plan-swatches").appendChild(s);
+  }
+  renderSwatches();
+
+  $("#tool-pencil").onclick = () => setTool(plan.tool === "pencil" ? null : "pencil");
+  $("#tool-eraser").onclick = () => setTool(plan.tool === "eraser" ? null : "eraser");
+  $("#tool-clear").onclick = clearFloorDrawing;
+  $("#add-atk").onclick = () => openOpPicker("ATTACK");
+  $("#add-def").onclick = () => openOpPicker("DEFEND");
+
+  bindCanvas();
+  bindPlacement();
+  bindZoom();
+  bindRoomHover();
+  await selectMap(Object.keys(plan.meta.maps)[0]);
+}
+
+function renderSwatches() {
+  document.querySelectorAll(".swatch").forEach(s =>
+    s.classList.toggle("active", s.dataset.c === plan.color));
+}
+
+async function selectMap(name) {
+  await flushPlanSave();
+  plan.mapName = name;
+  const m = plan.meta.maps[name];
+  plan.slug = m.slug; plan.floors = m.floors;  // [{file, label}] ordered bottom -> top
+  const saved = await call("plan_load", plan.slug);
+  plan.state = Object.assign({ roster: { atk: [], def: [] }, tokens: [], drawings: {} }, saved);
+  plan.hist = {};
+  plan.floor = (m.floors.find(f => f.label === "1st Floor") || m.floors[0]).file;
+  resetZoom();
+  renderFloorButtons();
+  renderRosters();
+  loadFloor();
+}
+
+function floorLabel(file) {
+  const f = plan.floors.find(f => f.file === file);
+  return f ? f.label : "F" + file;
+}
+
+function floorShort(file) {
+  return { "Basement": "B", "1st Floor": "1F", "2nd Floor": "2F",
+           "3rd Floor": "3F", "Roof": "R" }[floorLabel(file)] || floorLabel(file);
+}
+
+function renderFloorButtons() {
+  const el = $("#plan-floors");
+  el.innerHTML = "";
+  for (const f of plan.floors) {
+    const b = document.createElement("div");
+    b.className = "floor-btn" + (f.file === plan.floor ? " active" : "");
+    b.textContent = f.label;
+    b.onclick = () => { if (f.file !== plan.floor) switchFloor(f.file); };
+    el.appendChild(b);
+  }
+}
+
+function switchFloor(i) {
+  saveFloorDrawing();
+  plan.floor = i;
+  renderFloorButtons();
+  loadFloor();
+}
+
+function loadFloor() {
+  const img = $("#plan-bg");
+  img.onload = () => {
+    const canvas = $("#plan-draw");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const d = plan.state.drawings[plan.floor];
+    if (d) {
+      const pic = new Image();
+      pic.onload = () => canvas.getContext("2d").drawImage(pic, 0, 0);
+      pic.src = d;
+    }
+    renderTokens();
+  };
+  img.src = `maps/${plan.slug}/floor-${plan.floor}.jpg`;
+}
+
+/* --- drawing --- */
+
+function setTool(t) {
+  plan.tool = t;
+  if (t) armPlacement(null);
+  $("#tool-pencil").classList.toggle("active", t === "pencil");
+  $("#tool-eraser").classList.toggle("active", t === "eraser");
+  syncFrameClasses();
+}
+
+function syncFrameClasses() {
+  const f = $("#plan-frame");
+  f.classList.toggle("toolmode", !!plan.tool);
+  f.classList.toggle("pencil", plan.tool === "pencil");
+  f.classList.toggle("eraser", plan.tool === "eraser");
+  f.classList.toggle("placing", !!plan.arming);
+  const hint = $("#plan-hint");
+  if (plan.arming) {
+    hint.textContent = `click the map to place ${plan.arming.op}` +
+      (plan.arming.kind === "ability" ? "'s gadget" : "") + " — Esc to cancel";
+    hint.classList.remove("hidden");
+  } else hint.classList.add("hidden");
+}
+
+function canvasPos(e) {
+  const c = $("#plan-draw"), r = c.getBoundingClientRect();
+  return [(e.clientX - r.left) * c.width / r.width,
+          (e.clientY - r.top) * c.height / r.height];
+}
+
+function bindCanvas() {
+  const c = $("#plan-draw");
+  let drawing = false, ctx = null;
+  c.addEventListener("pointerdown", e => {
+    if (!plan.tool) return;
+    drawing = true;
+    pushHistory();
+    c.setPointerCapture(e.pointerId);
+    ctx = c.getContext("2d");
+    const scale = c.width / 1200;
+    ctx.lineCap = ctx.lineJoin = "round";
+    if (plan.tool === "eraser") {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineWidth = 34 * scale;
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = plan.color;
+      ctx.lineWidth = 4.5 * scale;
+    }
+    ctx.beginPath();
+    ctx.moveTo(...canvasPos(e));
+  });
+  c.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    ctx.lineTo(...canvasPos(e));
+    ctx.stroke();
+  });
+  const end = () => {
+    if (!drawing) return;
+    drawing = false;
+    saveFloorDrawing();
+    schedulePlanSave();
+  };
+  c.addEventListener("pointerup", end);
+  c.addEventListener("pointercancel", end);
+}
+
+function saveFloorDrawing() {
+  const c = $("#plan-draw");
+  if (c.width) plan.state.drawings[plan.floor] = c.toDataURL("image/png");
+}
+
+function clearFloorDrawing() {
+  const c = $("#plan-draw");
+  pushHistory();
+  c.getContext("2d").clearRect(0, 0, c.width, c.height);
+  delete plan.state.drawings[plan.floor];
+  schedulePlanSave();
+}
+
+/* --- stroke undo/redo (per floor, cmd/ctrl+Z / cmd/ctrl+X) --- */
+
+function histFor() { return plan.hist[plan.floor] ??= { undo: [], redo: [] }; }
+
+function pushHistory() {
+  const c = $("#plan-draw");
+  if (!c.width) return;
+  const h = histFor();
+  h.undo.push(c.toDataURL("image/png"));
+  if (h.undo.length > 30) h.undo.shift();
+  h.redo.length = 0;
+}
+
+function restoreSnapshot(url) {
+  const c = $("#plan-draw"), ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, c.width, c.height);
+  const img = new Image();
+  img.onload = () => ctx.drawImage(img, 0, 0);
+  img.src = url;
+  plan.state.drawings[plan.floor] = url;
+  schedulePlanSave();
+}
+
+function undoStroke() {
+  const h = histFor();
+  if (!h.undo.length) return;
+  h.redo.push($("#plan-draw").toDataURL("image/png"));
+  restoreSnapshot(h.undo.pop());
+}
+
+function redoStroke() {
+  const h = histFor();
+  if (!h.redo.length) return;
+  h.undo.push($("#plan-draw").toDataURL("image/png"));
+  restoreSnapshot(h.redo.pop());
+}
+
+/* --- room name on hover --- */
+
+function currentRooms() {
+  const byFloor = (plan.meta.rooms || {})[plan.mapName];
+  return byFloor ? (byFloor[plan.floor] || []) : null;
+}
+
+function setRoomName(text, empty) {
+  const el = $("#room-name");
+  el.textContent = text;
+  el.classList.toggle("empty", !!empty);
+}
+
+function updateRoomHover(e) {
+  const rooms = currentRooms();
+  if (!rooms) { setRoomName("no callouts for this map", true); return; }
+  const r = $("#plan-bg").getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  if (x < 0 || x > 1 || y < 0 || y > 1) { setRoomName("hover the map", true); return; }
+  const ar = r.height / r.width;          // isotropic distance in screen space
+  let best = null, bestD = Infinity;
+  for (const rm of rooms) {
+    const dx = rm.x - x, dy = (rm.y - y) * ar;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = rm; }
+  }
+  if (best && bestD < 0.06) setRoomName(best.n, false);
+  else setRoomName("—", true);
+}
+
+function bindRoomHover() {
+  const f = $("#plan-frame");
+  f.addEventListener("pointermove", updateRoomHover);
+  f.addEventListener("pointerleave", () => setRoomName("hover the map", true));
+}
+
+/* --- zoom & pan --- */
+
+const zoom = { k: 1, tx: 0, ty: 0 };
+
+function applyZoom() {
+  const f = $("#plan-frame");
+  f.style.transform = `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.k})`;
+  f.style.setProperty("--k", zoom.k);
+  $("#zoom-level").textContent = zoom.k.toFixed(1) + "×";
+}
+
+function resetZoom() { zoom.k = 1; zoom.tx = 0; zoom.ty = 0; applyZoom(); }
+
+function zoomAt(clientX, clientY, factor) {
+  const f = $("#plan-frame"), r = f.getBoundingClientRect();
+  const k2 = Math.min(6, Math.max(1, zoom.k * factor));
+  if (k2 === zoom.k) { if (k2 === 1) resetZoom(); return; }
+  // content point under the cursor stays fixed
+  const cx = (clientX - r.left) / zoom.k, cy = (clientY - r.top) / zoom.k;
+  const Lx = r.left - zoom.tx, Ly = r.top - zoom.ty;   // untransformed origin
+  zoom.tx = clientX - Lx - k2 * cx;
+  zoom.ty = clientY - Ly - k2 * cy;
+  zoom.k = k2;
+  if (zoom.k === 1) { zoom.tx = 0; zoom.ty = 0; }
+  applyZoom();
+}
+
+function bindZoom() {
+  const stage = $("#plan-stage");
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0022));
+  }, { passive: false });
+
+  const center = () => {
+    const r = stage.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  };
+  $("#zoom-in").onclick = () => zoomAt(...center(), 1.4);
+  $("#zoom-out").onclick = () => zoomAt(...center(), 1 / 1.4);
+  $("#zoom-reset").onclick = resetZoom;
+
+  // drag to pan (when not drawing, not placing, not on a token)
+  let pan = null;
+  stage.addEventListener("pointerdown", e => {
+    if (plan.tool || plan.arming || e.target.closest(".token") || e.target.closest("#zoom-ctl")) return;
+    pan = { x: e.clientX, y: e.clientY, moved: false };
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener("pointermove", e => {
+    if (!pan) return;
+    const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+    if (!pan.moved && Math.hypot(dx, dy) < 4) return;
+    pan.moved = true;
+    zoom.tx += dx; zoom.ty += dy;
+    pan.x = e.clientX; pan.y = e.clientY;
+    applyZoom();
+  });
+  const endPan = () => { pan = null; };
+  stage.addEventListener("pointerup", endPan);
+  stage.addEventListener("pointercancel", endPan);
+}
+
+/* --- rosters & tokens --- */
+
+function openOpPicker(side) {
+  const sideKey = side === "ATTACK" ? "atk" : "def";
+  if (plan.state.roster[sideKey].length >= 5) return;
+  const used = new Set(plan.state.roster[sideKey]);
+  const overlay = document.createElement("div");
+  overlay.id = "op-picker";
+  overlay.innerHTML = `<div class="box">
+      <div class="phead">
+        <h4>Add ${side === "ATTACK" ? "attacker" : "defender"}</h4>
+        <span class="count">${plan.state.roster[sideKey].length}/5 picked</span>
+        <span class="esc">Esc to close</span>
+      </div>
+      <div class="grid">` +
+    planOps(side).map(o =>
+      `<div class="cell ${used.has(o.name) ? "used" : ""}" data-op="${esc(o.name)}">
+         <img src="${esc(o.icon_url)}" class="${o.icon_chip ? "chipbg" : ""}"><span>${esc(o.name)}</span>
+       </div>`).join("") + `</div></div>`;
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+  document.addEventListener("keydown", onKey);
+  overlay.onclick = e => {
+    if (e.target.closest(".box") && !e.target.closest(".cell")) return;
+    const cell = e.target.closest(".cell");
+    if (cell) {
+      plan.state.roster[sideKey].push(cell.dataset.op);
+      renderRosters();
+      schedulePlanSave();
+    }
+    close();
+  };
+  document.body.appendChild(overlay);
+}
+
+function tokenFor(op, kind, idx) {
+  return plan.state.tokens.find(t => t.op === op && t.kind === kind && (idx == null || t.idx === idx));
+}
+
+function renderRosters() {
+  for (const [sideKey, side] of [["atk", "ATTACK"], ["def", "DEFEND"]]) {
+    const el = $("#roster-" + sideKey);
+    el.innerHTML = "";
+    for (const op of plan.state.roster[sideKey]) {
+      const o = opMeta(op) || {};
+      const placed = tokenFor(op, "op");
+      const arming = plan.arming && plan.arming.op === op && plan.arming.kind === "op";
+      const chip = document.createElement("div");
+      chip.className = "chip" + (arming ? " arming" : "") + (placed ? " placed" : "");
+      chip.innerHTML = `
+        <img class="opicon ${o.icon_chip ? "chip" : ""}" src="${esc(o.icon_url || "")}">
+        <span>${esc(op)}</span>
+        <span class="st">${placed ? floorShort(placed.floor) : ""}</span>
+        <span class="cbtn gadget" title="place gadget">◆</span>
+        <span class="cbtn" title="remove">✕</span>`;
+      chip.onclick = e => {
+        if (e.target.classList.contains("gadget")) {
+          armPlacement({ kind: "ability", op, side: sideKey });
+        } else if (e.target.classList.contains("cbtn")) {
+          plan.state.roster[sideKey] = plan.state.roster[sideKey].filter(x => x !== op);
+          plan.state.tokens = plan.state.tokens.filter(t => t.op !== op);
+          armPlacement(null); renderRosters(); renderTokens(); schedulePlanSave();
+        } else {
+          armPlacement(arming ? null : { kind: "op", op, side: sideKey });
+        }
+      };
+      el.appendChild(chip);
+    }
+  }
+}
+
+function armPlacement(a) {
+  plan.arming = a;
+  if (a) setToolQuiet();
+  syncFrameClasses();
+  document.querySelectorAll(".chip.arming").forEach(c => c.classList.remove("arming"));
+  if (a && a.kind === "op") renderRosters();
+}
+
+function setToolQuiet() {
+  plan.tool = null;
+  $("#tool-pencil").classList.remove("active");
+  $("#tool-eraser").classList.remove("active");
+}
+
+function bindPlacement() {
+  $("#plan-frame").addEventListener("click", e => {
+    if (!plan.arming || plan.tool) return;
+    if (e.target.closest(".token")) return;
+    const r = $("#plan-bg").getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    const a = plan.arming;
+    if (a.kind === "op") {
+      plan.state.tokens = plan.state.tokens.filter(t => !(t.op === a.op && t.kind === "op"));
+      plan.state.tokens.push({ kind: "op", op: a.op, side: a.side, floor: plan.floor, x, y });
+    } else {
+      const n = plan.state.tokens.filter(t => t.op === a.op && t.kind === "ability").length;
+      if (n >= 3) { armPlacement(null); return; }
+      plan.state.tokens.push({ kind: "ability", op: a.op, side: a.side, floor: plan.floor, x, y, idx: n });
+    }
+    armPlacement(null);
+    renderRosters(); renderTokens(); schedulePlanSave();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") armPlacement(null);
+    if (state.view !== "planning" || !(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === "z") { e.preventDefault(); undoStroke(); }
+    else if (k === "x") { e.preventDefault(); redoStroke(); }
+  });
+}
+
+function renderTokens() {
+  const layer = $("#plan-tokens");
+  layer.innerHTML = "";
+  for (const t of plan.state.tokens) {
+    if (t.floor !== plan.floor) continue;
+    const o = opMeta(t.op) || {};
+    const d = document.createElement("div");
+    d.className = `token ${t.side} ${t.kind === "ability" ? "ability" : ""}`;
+    d.style.left = (t.x * 100) + "%";
+    d.style.top = (t.y * 100) + "%";
+    d.title = t.op + (t.kind === "ability" ? " gadget (double-click to remove)" : " (double-click to remove)");
+    d.innerHTML = `<img src="${esc(o.icon_url || "")}" class="${o.icon_chip ? "chipbg" : ""}">`;
+    d.ondblclick = () => {
+      plan.state.tokens = plan.state.tokens.filter(x => x !== t);
+      renderRosters(); renderTokens(); schedulePlanSave();
+    };
+    d.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      d.setPointerCapture(e.pointerId);
+      const move = ev => {
+        const r = $("#plan-bg").getBoundingClientRect();
+        t.x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+        t.y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height));
+        d.style.left = (t.x * 100) + "%";
+        d.style.top = (t.y * 100) + "%";
+      };
+      const up = () => {
+        d.removeEventListener("pointermove", move);
+        d.removeEventListener("pointerup", up);
+        schedulePlanSave();
+      };
+      d.addEventListener("pointermove", move);
+      d.addEventListener("pointerup", up);
+    });
+    layer.appendChild(d);
+  }
+}
+
+/* --- persistence --- */
+
+function schedulePlanSave() {
+  plan.dirty = true;
+  clearTimeout(plan.saveTimer);
+  plan.saveTimer = setTimeout(flushPlanSave, 600);
+}
+
+async function flushPlanSave() {
+  clearTimeout(plan.saveTimer);
+  if (!plan.dirty || !plan.slug) return;
+  plan.dirty = false;
+  try { await call("plan_save", plan.slug, plan.state); } catch (e) { /* keep dirty state local */ }
+}
+
+/* ---------- shell ---------- */
+
+function setStatus(msg) { $("#status").textContent = msg; $("#status").style.display = msg ? "" : "none"; }
+
+async function load() {
+  const planning = state.view === "planning";
+  $("#filters").classList.toggle("hidden", planning);
+  document.querySelector("main").classList.toggle("hidden", planning);
+  $("#planning").classList.toggle("hidden", !planning);
+  if (planning) {
+    try { await initPlanning(); } catch (e) { alert("planning init failed: " + e.message); }
+    return;
+  }
+  setStatus("loading…"); $("#content").innerHTML = "";
+  document.querySelectorAll(".only-players").forEach(e => e.classList.toggle("hidden", state.view !== "players"));
+  document.querySelectorAll(".only-operators").forEach(e => e.classList.toggle("hidden", state.view !== "operators"));
+  try {
+    if (state.view === "players") await loadPlayers();
+    else if (state.view === "operators") await loadOperators();
+    else await loadMaps();
+    setStatus("");
+  } catch (e) { setStatus("error: " + e.message); }
+}
+
+async function init() {
+  const o = await call("options");
+  $("#meta").innerHTML = `${o.matches.toLocaleString()} matches · ${esc(o.date_lo)} → ${esc(o.date_hi)}<br>tier 1+2 pro play · data: siege.gg`;
+  for (const p of o.patches)
+    $("#f-period").insertAdjacentHTML("beforeend",
+      `<option value="${esc(p.name)}">${esc(p.name)} — ${esc(p.title)}</option>`);
+  $("#f-period").insertAdjacentHTML("beforeend", `<option value="custom">Custom range…</option>`);
+  for (const m of o.maps)
+    $("#f-map").insertAdjacentHTML("beforeend", `<option>${esc(m)}</option>`);
+
+  document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+    state.view = b.dataset.view; state.sortKey = null;
+    document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+    load();
+  });
+  for (const id of ["f-tier","f-region","f-period","f-map","f-side","f-limit","f-from","f-to"])
+    $("#" + id).onchange = () => {
+      $("#f-dates").classList.toggle("hidden", $("#f-period").value !== "custom");
+      state.sortKey = null; load();
+    };
+  $("#f-minrounds").onchange = load;
+  $("#f-search").oninput = () => { if (state.view === "players") renderPlayers(); };
+  document.querySelectorAll("#filters select").forEach(enhanceSelect);
+  load();
+}
+
+window.addEventListener("pywebviewready", init);
+</script>
+</body>
+</html>
